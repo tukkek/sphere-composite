@@ -8,88 +8,90 @@
     position:absolute;
     top:10px;
     left:10px;
-    background:rgba(0,0,0,0.7);
+    background:black;
     color:white;
     padding:10px;
     border-radius:5px;
+    display:grid;
+    gap:.5em;
+    font-weight:bold;
   }
 </style>
 
 <div id="controls">
-  <div>
-    <label for="size">Sphere Size: </label>
-    <input type="range" id="size" min="0.1" max="2" value="1" step="0.1">
-  </div>
-  <div>
-    <label for="textureScale">Texture Scale: </label>
-    <input type="range" id="textureScale" min="0.1" max="5" value="1" step="0.1">
-  </div>
-  <div>
-    <label for="texture">Choose Texture: </label>
-    <input type="file" id="texture" accept="image/*">
-  </div>
+  <div>Texture</div>
+  <input type="file" accept="image/*">
+  <div>Sphere size</div>
+  <input type="range" min="0.1" max="2" value="1" step="0.1">
+  <div>Texture size</div>
+  <input type="range" min="0.1" max="10" value="1" step="0.1">
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script>
-  var scene=new THREE.Scene()
-  var camera=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,1000)
-  var renderer=new THREE.WebGLRenderer()
-  var sliders=Array.from(document.querySelectorAll('input[type="range"]'))
-  var texturer=document.querySelector('#texture')
-  var sphere=new THREE.Mesh(new THREE.SphereGeometry(5,32,32),new THREE.MeshBasicMaterial({'color':0xcccccc}))
+  const SCENE=new THREE.Scene()
+  const CAMERA=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,.1,1000)
+  const RENDERER=new THREE.WebGLRenderer()
+  const SLIDERS=Array.from(document.querySelectorAll('input[type="range"]'))
+  const TEXTURER=document.querySelector('input[type="file"]')
+  const SPHERE=new THREE.Mesh(new THREE.SphereGeometry(5,30,30),new THREE.MeshBasicMaterial({'color':0xcccccc}))
+
   var texture=false
   var cursor=[0,0]
 
   function resize(){
     let width=window.innerWidth
     let height=window.innerHeight
-    camera.aspect=width/height
-    camera.updateProjectionMatrix()
-    renderer.setSize(width,height)
+    CAMERA.aspect=width/height
+    CAMERA.updateProjectionMatrix()
+    RENDERER.setSize(width,height)
   }
 
   function scale(){
-    let scale=sliders.map((slider)=>parseFloat(slider.value))
-    sphere.scale.set(scale[0],scale[0],scale[0])
+    let scale=SLIDERS.map((slider)=>parseFloat(slider.value))
+    SPHERE.scale.set(scale[0],scale[0],scale[0])
     if(!texture) return
     texture.repeat.set(scale[1],scale[1])
     texture.needsUpdate=true
   }
 
-  function wrap(){
-    let file=texturer.files[0]
+  function wrap(image){
+    let repeat=THREE.RepeatWrapping
+    image.wrapS=repeat
+    image.wrapT=repeat
+    let size=parseFloat(SLIDERS[1].value)
+    image.repeat.set(size,size)
+    SPHERE.material=new THREE.MeshBasicMaterial({'map':image})
+    SPHERE.material.needsUpdate=true
+    texture=image
+  }
+
+  function select(){
+    let file=TEXTURER.files[0]
     if(!file) return
     let reader=new FileReader()
-    reader.onload=(event)=>{
-      loader.load(event.target.result,(texture2)=>{
-        texture2.wrapS=texture2.wrapT=THREE.RepeatWrapping
-        texture2.repeat.set(parseFloat(sliders[1].value),parseFloat(sliders[1].value))
-        sphere.material=new THREE.MeshBasicMaterial({map:texture2})
-        sphere.material.needsUpdate=true
-        texture=texture2
-      })
-    }
+    reader.onload=()=>new THREE.TextureLoader().load(reader.result,(image)=>wrap(image))
     reader.readAsDataURL(file)
   }
 
   function animate(){
     requestAnimationFrame(animate)
-    let rotation=sphere.rotation
-    rotation.y=cursor[0]*Math.PI
-    rotation.x=cursor[1]*Math.PI
-    renderer.render(scene,camera)
+    let rotation=SPHERE.rotation
+    let delta=cursor.map((number)=>number*Math.PI)
+    rotation.y=delta[0]
+    rotation.x=delta[1]
+    RENDERER.render(SCENE,CAMERA)
   }
 
-  renderer.setSize(window.innerWidth,window.innerHeight)
-  document.body.appendChild(renderer.domElement)
-  scene.add(sphere)
-  camera.position.z=10
+  function move(event){cursor=[(event.clientX/window.innerWidth)*2-1,(event.clientY/window.innerHeight)*2+1]}
+
+  RENDERER.setSize(window.innerWidth,window.innerHeight)
+  document.body.appendChild(RENDERER.domElement)
+  SCENE.add(SPHERE)
+  CAMERA.position.z=10
   window.addEventListener('resize',resize)
-  sliders[0].addEventListener('input',scale)
-  sliders[1].addEventListener('input',scale)
-  let loader=new THREE.TextureLoader()
-  texturer.addEventListener('change',wrap)
-  document.addEventListener('mousemove',(e)=>cursor=[(e.clientX/window.innerWidth)*2-1,(e.clientY/window.innerHeight)*2+1])
+  TEXTURER.addEventListener('change',select)
+  document.addEventListener('mousemove',move)
+  for(let slider of SLIDERS) slider.addEventListener('input',scale)
   animate()
 </script>
