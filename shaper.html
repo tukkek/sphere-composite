@@ -1,0 +1,101 @@
+<!doctype HTML>
+<title>Shaper</title>
+
+<style>
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  canvas{
+    border:1px solid black;
+    margin:10px;
+  }
+  #controls{margin:10px;}
+</style>
+
+<div id="controls">
+  <input type="file" accept="image/*">
+  <label>Increment:<input type="range" id="increment" min="1" max="10" value="1"></label>
+</div>
+<canvas id="source" style="display:none;"></canvas>
+<canvas id="output"></canvas>
+
+<script>
+  const IMAGE=document.querySelector('input[type="file"]')
+  const INCREMENT=document.querySelector('input[type="range"]')
+  const SOURCE=document.querySelector('canvas#source')
+  const OUTPUT=document.querySelector('canvas#output')
+
+  var image=false
+
+  function size(pixels){
+    let rows=[]
+    let width=1
+    let npixels=pixels.length
+    let increment=parseInt(INCREMENT.value)
+    for(let i=0;i<npixels&&width>0;i+=width){
+      rows.push(width)
+      if(i<npixels/2) width+=increment
+      else width-=increment
+    }
+    return rows
+  }
+
+  function draw(pixels){
+    let rows=size(pixels)
+    let width=rows.reduce((width1,width2)=>width1>width2?width1:width2)
+    OUTPUT.width=width
+    let height=rows.length
+    OUTPUT.height=height
+    let context=OUTPUT.getContext('2d')
+    let data=context.createImageData(width,height)
+    let output=data.data
+    for(let i=0;i<output.length;i+=4) output[i+3]=0
+    let pixel=0
+    let npixels=pixels.length
+    for(let row=0;row<height&&pixel<npixels;row+=1){
+      let rowwidth=rows[row]
+      let start=Math.floor((width-rowwidth)/2)
+      for(let x=0;x<rowwidth&&pixel<npixels;x+=1){
+        let i=((row*width)+start+x)*4
+        let rgba=pixels[pixel]
+        output[i]=rgba[0]
+        output[i+1]=rgba[1]
+        output[i+2]=rgba[2]
+        output[i+3]=rgba[3]
+        pixel+=1
+      }
+    }
+    context.putImageData(data,0,0)
+  }
+
+  function shape(){
+    let source=SOURCE.getContext('2d')
+    let width=image.width
+    SOURCE.width=width
+    let height=image.height
+    SOURCE.height=height
+    source.drawImage(image,0,0)
+    let data=source.getImageData(0,0,width,height).data
+    let pixels=[]
+    for(let i=0;i<data.length;i+=4)
+      pixels.push([data[i],data[i+1],data[i+2],data[i+3]])
+    draw(pixels)
+  }
+
+  function load(file){
+    image=new Image()
+    image.src=file
+    image.onload=()=>shape()
+  }
+
+  function select(){
+    let reader=new FileReader()
+    reader.onload=()=>load(reader.result)
+    reader.readAsDataURL(IMAGE.files[0])
+  }
+
+  IMAGE.addEventListener('change',()=>select())
+  INCREMENT.addEventListener('input',()=>shape())
+</script>
